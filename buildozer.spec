@@ -13,7 +13,7 @@ requirements = python3,kivy==2.3.0,plyer,pillow,reportlab
 orientation = portrait
 fullscreen = 0
 
-icon.filename = %(source.dir)s/icon.png
+icon.filename = %(source.dir)s/icon.jpeg
 
 android.permissions = READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,READ_MEDIA_IMAGES
 
