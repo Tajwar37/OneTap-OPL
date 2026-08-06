@@ -8,7 +8,7 @@ source.include_exts = py,png,jpg,kv,atlas
 
 version = 1.0
 
-requirements = python3==3.11,kivy==2.3.0,plyer,pillow,reportlab
+requirements = python3,kivy==2.3.0,plyer,pillow,reportlab,https://github.com/kivy/pyjnius/archive/master.zip
 
 orientation = portrait
 fullscreen = 0
