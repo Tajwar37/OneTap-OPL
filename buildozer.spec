@@ -8,7 +8,7 @@ source.include_exts = py,png,jpg,kv,atlas
 
 version = 1.0
 
-requirements = requirements = python3==3.11.4,kivy==2.3.0,plyer,pillow,reportlab
+requirements = python3==3.11.4,kivy==2.3.0,plyer,pillow,reportlab
 
 orientation = portrait
 fullscreen = 0
