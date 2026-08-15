@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -98,6 +98,9 @@
     font-weight: bold;
     box-shadow: 0 2px 8px rgba(0,0,0,0.25);
   }
+  #shareBtn:disabled {
+    background: #90a4ae;
+  }
   .error-msg {
     color: #c62828;
     font-size: 13px;
@@ -192,6 +195,34 @@ function fileToDataURL(file) {
   });
 }
 
+// ---- Bangla font support ----
+function arrayBufferToBase64(buffer) {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+let bengaliFontLoaded = false;
+async function loadBengaliFont(doc) {
+  if (bengaliFontLoaded) return;
+  const baseUrl = "https://cdn.jsdelivr.net/gh/googlefonts/noto-fonts/hinted/ttf/NotoSansBengali/";
+  const [regRes, boldRes] = await Promise.all([
+    fetch(baseUrl + "NotoSansBengali-Regular.ttf"),
+    fetch(baseUrl + "NotoSansBengali-Bold.ttf")
+  ]);
+  const regBuf = await regRes.arrayBuffer();
+  const boldBuf = await boldRes.arrayBuffer();
+  doc.addFileToVFS("NotoSansBengali-Regular.ttf", arrayBufferToBase64(regBuf));
+  doc.addFont("NotoSansBengali-Regular.ttf", "NotoBengali", "normal");
+  doc.addFileToVFS("NotoSansBengali-Bold.ttf", arrayBufferToBase64(boldBuf));
+  doc.addFont("NotoSansBengali-Bold.ttf", "NotoBengali", "bold");
+  bengaliFontLoaded = true;
+}
+
 document.getElementById("shareBtn").addEventListener("click", async () => {
   const theme = document.getElementById("theme").value.trim();
   const preparedBy = document.getElementById("preparedBy").value.trim();
@@ -199,6 +230,7 @@ document.getElementById("shareBtn").addEventListener("click", async () => {
   const highlight = document.getElementById("highlight").value.trim();
   const pqcdsm = Array.from(document.querySelectorAll('.pqcdsm-grid input:checked')).map(c => c.value);
   const errorMsg = document.getElementById("errorMsg");
+  const shareBtn = document.getElementById("shareBtn");
 
   if (!theme) return showError("Please enter a Theme.");
   if (!preparedBy) return showError("Please enter Prepared By.");
@@ -206,191 +238,217 @@ document.getElementById("shareBtn").addEventListener("click", async () => {
   if (!noGoodFile || !goodFile) return showError("Please select both photos.");
   errorMsg.style.display = "none";
 
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
-  const pageW = doc.internal.pageSize.getWidth();
-  const margin = 10;
-  const contentW = pageW - margin * 2;
+  shareBtn.disabled = true;
+  shareBtn.textContent = "Preparing PDF...";
 
-  doc.setLineWidth(0.3);
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
 
-  // ---- Title box ----
-  let y = 12;
-  doc.rect(margin, y, contentW, 10);
-  doc.setFont("helvetica", "bolditalic");
-  doc.setFontSize(16);
-  doc.text("TPM One Point Lesson", pageW / 2, y + 7, { align: "center" });
-  y += 10;
+    await loadBengaliFont(doc);
+    const FONT = "NotoBengali";
 
-  // ---- Header row (Theme | Ref OPL No / Date) ----
-  const themeColW = 6;
-  const themeFieldW = 105;
-  const rightColW = contentW - themeColW - themeFieldW;
-  const headerH = 22;
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 10;
+    const contentW = pageW - margin * 2;
 
-  doc.rect(margin, y, themeColW, headerH);
-  doc.rect(margin + themeColW, y, themeFieldW, headerH);
-  doc.rect(margin + themeColW + themeFieldW, y, rightColW, headerH / 2);
-  doc.rect(margin + themeColW + themeFieldW, y + headerH / 2, rightColW, headerH / 2);
+    doc.setLineWidth(0.3);
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.text("Theme", margin + themeColW / 2 + 1, y + headerH / 2, { align: "center", angle: 90 });
+    // ---- Title box ----
+    let y = 12;
+    doc.rect(margin, y, contentW, 10);
+    doc.setFont(FONT, "bold");
+    doc.setFontSize(16);
+    doc.text("TPM One Point Lesson", pageW / 2, y + 7, { align: "center" });
+    y += 10;
 
-  doc.setFontSize(10);
-  doc.text(theme, margin + themeColW + 3, y + headerH / 2 + 1);
+    // ---- Header row (Theme | Ref OPL No / Date) ----
+    const themeColW = 6;
+    const themeFieldW = 105;
+    const rightColW = contentW - themeColW - themeFieldW;
+    const headerH = 22;
 
-  doc.setFontSize(8);
-  doc.text("Ref OPL No.", margin + themeColW + themeFieldW + 2, y + 5);
-  doc.text("Date Of Preparation", margin + themeColW + themeFieldW + 2, y + headerH / 2 + 5);
-  doc.setFont("helvetica", "normal");
-  const todayStr = new Date().toLocaleDateString();
-  doc.text(todayStr, margin + themeColW + themeFieldW + rightColW - 25, y + headerH / 2 + 5);
+    doc.rect(margin, y, themeColW, headerH);
+    doc.rect(margin + themeColW, y, themeFieldW, headerH);
+    doc.rect(margin + themeColW + themeFieldW, y, rightColW, headerH / 2);
+    doc.rect(margin + themeColW + themeFieldW, y + headerH / 2, rightColW, headerH / 2);
 
-  y += headerH;
+    doc.setFont(FONT, "bold");
+    doc.setFontSize(9);
+    doc.text("Theme", margin + themeColW / 2 + 1, y + headerH / 2, { align: "center", angle: 90 });
 
-  // ---- Classification row ----
-  const classColW = 6;
-  const classRowH = 24;
-  doc.rect(margin, y, classColW, classRowH);
-  doc.setFontSize(8);
-  doc.text("Classification", margin + classColW / 2 + 1, y + classRowH / 2, { align: "center", angle: 90 });
+    doc.setFont(FONT, "normal");
+    doc.setFontSize(10);
+    doc.text(theme, margin + themeColW + 3, y + headerH / 2 + 1);
 
-  const options = ["Basic Knowledge", "Improvement Cases", "Troubleshooting Cases"];
-  const optColW = 40;
-  let ox = margin + classColW;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  options.forEach(opt => {
-    doc.rect(ox, y, optColW, classRowH);
-    const boxSize = 4;
-    const boxY = y + classRowH / 2 - boxSize / 2;
-    doc.rect(ox + 3, boxY, boxSize, boxSize);
-    if (classification.value === opt) {
-      doc.setFont("helvetica", "bold");
-      doc.text("X", ox + 3.6, boxY + 3.2);
-      doc.setFont("helvetica", "normal");
-    }
-    const lines = doc.splitTextToSize(opt, optColW - 12);
-    doc.text(lines, ox + 9, y + classRowH / 2 - (lines.length - 1) * 1.5);
-    ox += optColW;
-  });
+    doc.setFont(FONT, "bold");
+    doc.setFontSize(8);
+    doc.text("Ref OPL No.", margin + themeColW + themeFieldW + 2, y + 5);
+    doc.text("Date Of Preparation", margin + themeColW + themeFieldW + 2, y + headerH / 2 + 5);
+    doc.setFont(FONT, "normal");
+    const todayStr = new Date().toLocaleDateString();
+    doc.text(todayStr, margin + themeColW + themeFieldW + rightColW - 25, y + headerH / 2 + 5);
 
-  const signCols = ["Section Chief", "Production Shift Officer", "Circle Leader", "Prepared By"];
-  const remainingW = margin + contentW - ox;
-  const signColW = remainingW / signCols.length;
-  signCols.forEach((label, i) => {
-    const sx = ox + i * signColW;
-    doc.rect(sx, y, signColW, classRowH);
-    const lines = doc.splitTextToSize(label, signColW - 4);
-    doc.text(lines, sx + signColW / 2, y + 5, { align: "center" });
-    if (label === "Prepared By") {
-      doc.setFontSize(9);
-      doc.text(preparedBy, sx + signColW / 2, y + classRowH - 4, { align: "center" });
-      doc.setFontSize(8);
-    }
-  });
+    y += headerH;
 
-  y += classRowH + 8;
+    // ---- Classification row ----
+    const classColW = 6;
+    const classRowH = 24;
+    doc.rect(margin, y, classColW, classRowH);
+    doc.setFont(FONT, "bold");
+    doc.setFontSize(8);
+    doc.text("Classification", margin + classColW / 2 + 1, y + classRowH / 2, { align: "center", angle: 90 });
 
-  // ---- Photo boxes ----
-  const photoW = (contentW - 10) / 2;
-  const photoH = 65;
-  const noGoodData = await fileToDataURL(noGoodFile);
-  const goodData = await fileToDataURL(goodFile);
+    const options = ["Basic Knowledge", "Improvement Cases", "Troubleshooting Cases"];
+    const optColW = 40;
+    let ox = margin + classColW;
+    doc.setFont(FONT, "normal");
+    doc.setFontSize(8);
+    options.forEach(opt => {
+      doc.rect(ox, y, optColW, classRowH);
+      const boxSize = 4;
+      const boxY = y + classRowH / 2 - boxSize / 2;
+      doc.rect(ox + 3, boxY, boxSize, boxSize);
+      if (classification.value === opt) {
+        doc.setFont(FONT, "bold");
+        doc.text("X", ox + 3.6, boxY + 3.2);
+        doc.setFont(FONT, "normal");
+      }
+      const lines = doc.splitTextToSize(opt, optColW - 12);
+      doc.text(lines, ox + 9, y + classRowH / 2 - (lines.length - 1) * 1.5);
+      ox += optColW;
+    });
 
-  doc.roundedRect(margin, y, photoW, photoH, 4, 4);
-  doc.roundedRect(margin + photoW + 10, y, photoW, photoH, 4, 4);
-  doc.addImage(noGoodData, margin + 2, y + 2, photoW - 4, photoH - 4, undefined, "FAST");
-  doc.addImage(goodData, margin + photoW + 12, y + 2, photoW - 4, photoH - 4, undefined, "FAST");
+    const signCols = ["Section Chief", "Production Shift Officer", "Circle Leader", "Prepared By"];
+    const remainingW = margin + contentW - ox;
+    const signColW = remainingW / signCols.length;
+    signCols.forEach((label, i) => {
+      const sx = ox + i * signColW;
+      doc.rect(sx, y, signColW, classRowH);
+      const lines = doc.splitTextToSize(label, signColW - 4);
+      doc.text(lines, sx + signColW / 2, y + 5, { align: "center" });
+      if (label === "Prepared By" && preparedBy) {
+        let nameFontSize = 9;
+        let nameLines = doc.splitTextToSize(preparedBy, signColW - 4);
+        while (nameLines.length > 2 && nameFontSize > 5) {
+          nameFontSize -= 1;
+          doc.setFontSize(nameFontSize);
+          nameLines = doc.splitTextToSize(preparedBy, signColW - 4);
+        }
+        doc.setFontSize(nameFontSize);
+        const nameStartY = y + classRowH - 2 - (nameLines.length - 1) * (nameFontSize / 2.5);
+        doc.text(nameLines, sx + signColW / 2, nameStartY, { align: "center" });
+        doc.setFontSize(8);
+      }
+    });
 
-  y += photoH + 6;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.text("No Good", margin + photoW / 2, y, { align: "center" });
-  doc.text("Good", margin + photoW + 10 + photoW / 2, y, { align: "center" });
+    y += classRowH + 8;
 
-  y += 10;
+    // ---- Photo boxes ----
+    const photoW = (contentW - 10) / 2;
+    const photoH = 65;
+    const noGoodData = await fileToDataURL(noGoodFile);
+    const goodData = await fileToDataURL(goodFile);
 
-  // ---- Highlight + PQCDSM line ----
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.text("Highlight : Learning /Know why it is not Good", margin, y);
+    doc.roundedRect(margin, y, photoW, photoH, 4, 4);
+    doc.roundedRect(margin + photoW + 10, y, photoW, photoH, 4, 4);
+    doc.addImage(noGoodData, margin + 2, y + 2, photoW - 4, photoH - 4, undefined, "FAST");
+    doc.addImage(goodData, margin + photoW + 12, y + 2, photoW - 4, photoH - 4, undefined, "FAST");
 
-  const pqLabelX = margin + 100;
-  doc.text("Pls tick trelevent one :", pqLabelX, y);
-  let px = pqLabelX + 32;
-  letters.forEach(letter => {
-    const boxSize = 3.5;
-    doc.rect(px, y - 3, boxSize, boxSize);
-    if (pqcdsm.includes(letter)) {
-      doc.setFont("helvetica", "bold");
-      doc.text("X", px + 0.5, y - 0.3, { fontSize: 6 });
-      doc.setFont("helvetica", "normal");
-    }
-    doc.text(letter, px + boxSize + 1, y);
-    px += 9;
-  });
+    y += photoH + 6;
+    doc.setFont(FONT, "bold");
+    doc.setFontSize(10);
+    doc.text("No Good", margin + photoW / 2, y, { align: "center" });
+    doc.text("Good", margin + photoW + 10 + photoW / 2, y, { align: "center" });
 
-  y += 6;
-  const highlightLines = doc.splitTextToSize(highlight, contentW - 4);
-  doc.text(highlightLines, margin, y);
-  y += highlightLines.length * 4.5 + 8;
+    y += 10;
 
-  // ---- Know-how note box ----
-  const noteW = 30;
-  const noteH = 14;
-  const noteX = margin + contentW - noteW;
-  doc.setFontSize(7);
-  doc.rect(noteX, y, noteW, noteH);
-  doc.text("KNOW HOW", noteX + 2, y + 4);
-  doc.text("REF: SOP etc", noteX + 2, y + 8);
-  doc.text("if reqd/ any", noteX + 2, y + 12);
+    // ---- Highlight + PQCDSM line ----
+    doc.setFont(FONT, "normal");
+    doc.setFontSize(9);
+    doc.text("Highlight : Learning /Know why it is not Good", margin, y);
 
-  // ---- Actual Results table ----
-  const tableY = 260;
-  const tableH = 25;
-  const labelColW = 6;
-  const dateColW = 22;
-  const dataColCount = 9;
-  const dataColW = (contentW - labelColW - dateColW) / dataColCount;
+    const pqLabelX = margin + 100;
+    doc.text("Pls tick trelevent one :", pqLabelX, y);
+    let px = pqLabelX + 32;
+    letters.forEach(letter => {
+      const boxSize = 3.5;
+      doc.rect(px, y - 3, boxSize, boxSize);
+      if (pqcdsm.includes(letter)) {
+        doc.setFont(FONT, "bold");
+        doc.text("X", px + 0.5, y - 0.3);
+        doc.setFont(FONT, "normal");
+      }
+      doc.text(letter, px + boxSize + 1, y);
+      px += 9;
+    });
 
-  doc.setFontSize(8);
-  doc.rect(margin, tableY, labelColW, tableH);
-  doc.text("Actual Results", margin + labelColW / 2 + 1, tableY + tableH / 2, { align: "center", angle: 90 });
+    y += 6;
+    const highlightLines = doc.splitTextToSize(highlight, contentW - 4);
+    doc.text(highlightLines, margin, y);
+    y += highlightLines.length * 4.5 + 8;
 
-  const rowLabels = ["Date Executed", "Teacher", "Student"];
-  const rowH = tableH / 3;
-  rowLabels.forEach((label, i) => {
-    const ry = tableY + i * rowH;
-    doc.rect(margin + labelColW, ry, dateColW, rowH);
-    const lines = doc.splitTextToSize(label, dateColW - 3);
-    doc.text(lines, margin + labelColW + 1.5, ry + rowH / 2 - (lines.length - 1) * 1.3);
-  });
+    // ---- Know-how note box ----
+    const noteW = 30;
+    const noteH = 14;
+    const noteX = margin + contentW - noteW;
+    doc.setFontSize(7);
+    doc.rect(noteX, y, noteW, noteH);
+    doc.text("KNOW HOW", noteX + 2, y + 4);
+    doc.text("REF: SOP etc", noteX + 2, y + 8);
+    doc.text("if reqd/ any", noteX + 2, y + 12);
 
-  for (let c = 0; c < dataColCount; c++) {
-    const cx = margin + labelColW + dateColW + c * dataColW;
-    for (let r = 0; r < 3; r++) {
-      const ry = tableY + r * rowH;
-      doc.rect(cx, ry, dataColW, rowH);
-      if (r === 0) {
-        doc.line(cx, ry + rowH, cx + dataColW, ry);
+    // ---- Actual Results table ----
+    const tableY = 260;
+    const tableH = 25;
+    const labelColW = 6;
+    const dateColW = 22;
+    const dataColCount = 9;
+    const dataColW = (contentW - labelColW - dateColW) / dataColCount;
+
+    doc.setFontSize(8);
+    doc.rect(margin, tableY, labelColW, tableH);
+    doc.text("Actual Results", margin + labelColW / 2 + 1, tableY + tableH / 2, { align: "center", angle: 90 });
+
+    const rowLabels = ["Date Executed", "Teacher", "Student"];
+    const rowH = tableH / 3;
+    rowLabels.forEach((label, i) => {
+      const ry = tableY + i * rowH;
+      doc.rect(margin + labelColW, ry, dateColW, rowH);
+      const lines = doc.splitTextToSize(label, dateColW - 3);
+      doc.text(lines, margin + labelColW + 1.5, ry + rowH / 2 - (lines.length - 1) * 1.3);
+    });
+
+    for (let c = 0; c < dataColCount; c++) {
+      const cx = margin + labelColW + dateColW + c * dataColW;
+      for (let r = 0; r < 3; r++) {
+        const ry = tableY + r * rowH;
+        doc.rect(cx, ry, dataColW, rowH);
+        if (r === 0) {
+          doc.line(cx, ry + rowH, cx + dataColW, ry);
+        }
       }
     }
-  }
 
-  const filename = `OPL_${theme.replace(/\s+/g,'_').slice(0,20)}.pdf`;
-  const pdfBlob = doc.output("blob");
-  const pdfFile = new File([pdfBlob], filename, { type: "application/pdf" });
+    const filename = `OPL_${theme.replace(/\s+/g,'_').slice(0,20)}.pdf`;
+    const pdfBlob = doc.output("blob");
+    const pdfFile = new File([pdfBlob], filename, { type: "application/pdf" });
 
-  if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-    try {
-      await navigator.share({ files: [pdfFile], title: "OPL PDF" });
-    } catch (e) {
+    if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+      try {
+        await navigator.share({ files: [pdfFile], title: "OPL PDF" });
+      } catch (e) {
+        doc.save(filename);
+      }
+    } else {
       doc.save(filename);
     }
-  } else {
-    doc.save(filename);
+  } catch (err) {
+    showError("Something went wrong generating the PDF. Please try again.");
+    console.error(err);
+  } finally {
+    shareBtn.disabled = false;
+    shareBtn.textContent = "📤 Share OPL";
   }
 });
 
