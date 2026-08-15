@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OneTap OPL</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, Roboto, Arial, sans-serif;
+    background: #f2f4f7;
+    margin: 0;
+    padding: 16px;
+    padding-bottom: 100px;
+  }
+  h1 {
+    font-size: 22px;
+    text-align: center;
+    color: #1565C0;
+    margin-bottom: 20px;
+  }
+  .section {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .section h2 {
+    font-size: 15px;
+    color: #333;
+    margin: 0 0 10px 0;
+  }
+  .photo-row {
+    display: flex;
+    gap: 10px;
+  }
+  .photo-btn {
+    flex: 1;
+    padding: 20px 8px;
+    border: 2px dashed #90CAF9;
+    border-radius: 10px;
+    background: #E3F2FD;
+    text-align: center;
+    font-size: 14px;
+    color: #1565C0;
+    cursor: pointer;
+  }
+  .photo-btn.selected {
+    border-style: solid;
+    border-color: #1565C0;
+    background: #BBDEFB;
+  }
+  .photo-btn img {
+    max-width: 100%;
+    max-height: 80px;
+    border-radius: 6px;
+    margin-top: 6px;
+  }
+  input[type=file] { display: none; }
+  input[type=text], textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 15px;
+    margin-bottom: 10px;
+  }
+  textarea { min-height: 90px; resize: vertical; }
+  .radio-row, .check-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 15px;
+  }
+  .radio-row input, .check-row input {
+    width: 20px;
+    height: 20px;
+    margin-right: 10px;
+  }
+  .pqcdsm-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  #shareBtn {
+    position: fixed;
+    bottom: 16px;
+    left: 16px;
+    right: 16px;
+    background: #1565C0;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 18px;
+    font-weight: bold;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  }
+  .error-msg {
+    color: #c62828;
+    font-size: 13px;
+    margin-top: 6px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<h1>OneTap OPL</h1>
+
+<div class="section">
+  <h2>Photos</h2>
+  <div class="photo-row">
+    <label class="photo-btn" id="noGoodBtn">
+      📷 No Good Photo
+      <input type="file" accept="image/*" id="noGoodInput">
+      <div id="noGoodPreview"></div>
+    </label>
+    <label class="photo-btn" id="goodBtn">
+      📷 Good Photo
+      <input type="file" accept="image/*" id="goodInput">
+      <div id="goodPreview"></div>
+    </label>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Information</h2>
+  <input type="text" id="theme" placeholder="Theme">
+  <input type="text" id="preparedBy" placeholder="Prepared By">
+</div>
+
+<div class="section">
+  <h2>Classification</h2>
+  <label class="radio-row"><input type="radio" name="classification" value="Basic Knowledge"> Basic Knowledge</label>
+  <label class="radio-row"><input type="radio" name="classification" value="Improvement Cases"> Improvement Cases</label>
+  <label class="radio-row"><input type="radio" name="classification" value="Troubleshooting Cases"> Troubleshooting Cases</label>
+</div>
+
+<div class="section">
+  <h2>Highlight / Learning</h2>
+  <textarea id="highlight" placeholder="Enter details..."></textarea>
+</div>
+
+<div class="section">
+  <h2>PQCDSM</h2>
+  <div class="pqcdsm-grid" id="pqcdsmGrid"></div>
+</div>
+
+<div class="error-msg" id="errorMsg"></div>
+
+<button id="shareBtn">📤 Share OPL</button>
+
+<script>
+const letters = ["P","Q","C","D","S","M"];
+const grid = document.getElementById("pqcdsmGrid");
+letters.forEach(l => {
+  const label = document.createElement("label");
+  label.className = "check-row";
+  label.innerHTML = `<input type="checkbox" value="${l}"> ${l}`;
+  grid.appendChild(label);
+});
+
+let noGoodFile = null, goodFile = null;
+
+function setupPhoto(inputId, btnId, previewId, isNoGood) {
+  const input = document.getElementById(inputId);
+  const btn = document.getElementById(btnId);
+  const preview = document.getElementById(previewId);
+  input.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (isNoGood) noGoodFile = file; else goodFile = file;
+    btn.classList.add("selected");
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      preview.innerHTML = `<img src="${ev.target.result}">`;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+setupPhoto("noGoodInput", "noGoodBtn", "noGoodPreview", true);
+setupPhoto("goodInput", "goodBtn", "goodPreview", false);
+
+function fileToDataURL(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.readAsDataURL(file);
+  });
+}
+
+document.getElementById("shareBtn").addEventListener("click", async () => {
+  const theme = document.getElementById("theme").value.trim();
+  const preparedBy = document.getElementById("preparedBy").value.trim();
+  const classification = document.querySelector('input[name="classification"]:checked');
+  const highlight = document.getElementById("highlight").value.trim();
+  const pqcdsm = Array.from(document.querySelectorAll('.pqcdsm-grid input:checked')).map(c => c.value);
+  const errorMsg = document.getElementById("errorMsg");
+
+  if (!theme) return showError("Please enter a Theme.");
+  if (!preparedBy) return showError("Please enter Prepared By.");
+  if (!classification) return showError("Please select a Classification.");
+  if (!noGoodFile || !goodFile) return showError("Please select both photos.");
+  errorMsg.style.display = "none";
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 10;
+  const contentW = pageW - margin * 2;
+
+  doc.setLineWidth(0.3);
+
+  // ---- Title box ----
+  let y = 12;
+  doc.rect(margin, y, contentW, 10);
+  doc.setFont("helvetica", "bolditalic");
+  doc.setFontSize(16);
+  doc.text("TPM One Point Lesson", pageW / 2, y + 7, { align: "center" });
+  y += 10;
+
+  // ---- Header row (Theme | Ref OPL No / Date) ----
+  const themeColW = 6;
+  const themeFieldW = 105;
+  const rightColW = contentW - themeColW - themeFieldW;
+  const headerH = 22;
+
+  doc.rect(margin, y, themeColW, headerH);
+  doc.rect(margin + themeColW, y, themeFieldW, headerH);
+  doc.rect(margin + themeColW + themeFieldW, y, rightColW, headerH / 2);
+  doc.rect(margin + themeColW + themeFieldW, y + headerH / 2, rightColW, headerH / 2);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text("Theme", margin + themeColW / 2 + 1, y + headerH / 2, { align: "center", angle: 90 });
+
+  doc.setFontSize(10);
+  doc.text(theme, margin + themeColW + 3, y + headerH / 2 + 1);
+
+  doc.setFontSize(8);
+  doc.text("Ref OPL No.", margin + themeColW + themeFieldW + 2, y + 5);
+  doc.text("Date Of Preparation", margin + themeColW + themeFieldW + 2, y + headerH / 2 + 5);
+  doc.setFont("helvetica", "normal");
+  const todayStr = new Date().toLocaleDateString();
+  doc.text(todayStr, margin + themeColW + themeFieldW + rightColW - 25, y + headerH / 2 + 5);
+
+  y += headerH;
+
+  // ---- Classification row ----
+  const classColW = 6;
+  const classRowH = 24;
+  doc.rect(margin, y, classColW, classRowH);
+  doc.setFontSize(8);
+  doc.text("Classification", margin + classColW / 2 + 1, y + classRowH / 2, { align: "center", angle: 90 });
+
+  const options = ["Basic Knowledge", "Improvement Cases", "Troubleshooting Cases"];
+  const optColW = 40;
+  let ox = margin + classColW;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  options.forEach(opt => {
+    doc.rect(ox, y, optColW, classRowH);
+    const boxSize = 4;
+    const boxY = y + classRowH / 2 - boxSize / 2;
+    doc.rect(ox + 3, boxY, boxSize, boxSize);
+    if (classification.value === opt) {
+      doc.setFont("helvetica", "bold");
+      doc.text("X", ox + 3.6, boxY + 3.2);
+      doc.setFont("helvetica", "normal");
+    }
+    const lines = doc.splitTextToSize(opt, optColW - 12);
+    doc.text(lines, ox + 9, y + classRowH / 2 - (lines.length - 1) * 1.5);
+    ox += optColW;
+  });
+
+  const signCols = ["Section Chief", "Production Shift Officer", "Circle Leader", "Prepared By"];
+  const remainingW = margin + contentW - ox;
+  const signColW = remainingW / signCols.length;
+  signCols.forEach((label, i) => {
+    const sx = ox + i * signColW;
+    doc.rect(sx, y, signColW, classRowH);
+    const lines = doc.splitTextToSize(label, signColW - 4);
+    doc.text(lines, sx + signColW / 2, y + 5, { align: "center" });
+    if (label === "Prepared By") {
+      doc.setFontSize(9);
+      doc.text(preparedBy, sx + signColW / 2, y + classRowH - 4, { align: "center" });
+      doc.setFontSize(8);
+    }
+  });
+
+  y += classRowH + 8;
+
+  // ---- Photo boxes ----
+  const photoW = (contentW - 10) / 2;
+  const photoH = 65;
+  const noGoodData = await fileToDataURL(noGoodFile);
+  const goodData = await fileToDataURL(goodFile);
+
+  doc.roundedRect(margin, y, photoW, photoH, 4, 4);
+  doc.roundedRect(margin + photoW + 10, y, photoW, photoH, 4, 4);
+  doc.addImage(noGoodData, margin + 2, y + 2, photoW - 4, photoH - 4, undefined, "FAST");
+  doc.addImage(goodData, margin + photoW + 12, y + 2, photoW - 4, photoH - 4, undefined, "FAST");
+
+  y += photoH + 6;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("No Good", margin + photoW / 2, y, { align: "center" });
+  doc.text("Good", margin + photoW + 10 + photoW / 2, y, { align: "center" });
+
+  y += 10;
+
+  // ---- Highlight + PQCDSM line ----
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.text("Highlight : Learning /Know why it is not Good", margin, y);
+
+  const pqLabelX = margin + 100;
+  doc.text("Pls tick trelevent one :", pqLabelX, y);
+  let px = pqLabelX + 32;
+  letters.forEach(letter => {
+    const boxSize = 3.5;
+    doc.rect(px, y - 3, boxSize, boxSize);
+    if (pqcdsm.includes(letter)) {
+      doc.setFont("helvetica", "bold");
+      doc.text("X", px + 0.5, y - 0.3, { fontSize: 6 });
+      doc.setFont("helvetica", "normal");
+    }
+    doc.text(letter, px + boxSize + 1, y);
+    px += 9;
+  });
+
+  y += 6;
+  const highlightLines = doc.splitTextToSize(highlight, contentW - 4);
+  doc.text(highlightLines, margin, y);
+  y += highlightLines.length * 4.5 + 8;
+
+  // ---- Know-how note box ----
+  const noteW = 30;
+  const noteH = 14;
+  const noteX = margin + contentW - noteW;
+  doc.setFontSize(7);
+  doc.rect(noteX, y, noteW, noteH);
+  doc.text("KNOW HOW", noteX + 2, y + 4);
+  doc.text("REF: SOP etc", noteX + 2, y + 8);
+  doc.text("if reqd/ any", noteX + 2, y + 12);
+
+  // ---- Actual Results table ----
+  const tableY = 260;
+  const tableH = 25;
+  const labelColW = 6;
+  const dateColW = 22;
+  const dataColCount = 9;
+  const dataColW = (contentW - labelColW - dateColW) / dataColCount;
+
+  doc.setFontSize(8);
+  doc.rect(margin, tableY, labelColW, tableH);
+  doc.text("Actual Results", margin + labelColW / 2 + 1, tableY + tableH / 2, { align: "center", angle: 90 });
+
+  const rowLabels = ["Date Executed", "Teacher", "Student"];
+  const rowH = tableH / 3;
+  rowLabels.forEach((label, i) => {
+    const ry = tableY + i * rowH;
+    doc.rect(margin + labelColW, ry, dateColW, rowH);
+    const lines = doc.splitTextToSize(label, dateColW - 3);
+    doc.text(lines, margin + labelColW + 1.5, ry + rowH / 2 - (lines.length - 1) * 1.3);
+  });
+
+  for (let c = 0; c < dataColCount; c++) {
+    const cx = margin + labelColW + dateColW + c * dataColW;
+    for (let r = 0; r < 3; r++) {
+      const ry = tableY + r * rowH;
+      doc.rect(cx, ry, dataColW, rowH);
+      if (r === 0) {
+        doc.line(cx, ry + rowH, cx + dataColW, ry);
+      }
+    }
+  }
+
+  const filename = `OPL_${theme.replace(/\s+/g,'_').slice(0,20)}.pdf`;
+  const pdfBlob = doc.output("blob");
+  const pdfFile = new File([pdfBlob], filename, { type: "application/pdf" });
+
+  if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+    try {
+      await navigator.share({ files: [pdfFile], title: "OPL PDF" });
+    } catch (e) {
+      doc.save(filename);
+    }
+  } else {
+    doc.save(filename);
+  }
+});
+
+function showError(msg) {
+  const errorMsg = document.getElementById("errorMsg");
+  errorMsg.textContent = msg;
+  errorMsg.style.display = "block";
+}
+</script>
+</body>
+</html>
