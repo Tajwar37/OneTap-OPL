@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -209,13 +210,19 @@ function arrayBufferToBase64(buffer) {
 let bengaliFontLoaded = false;
 async function loadBengaliFont(doc) {
   if (bengaliFontLoaded) return;
-  const baseUrl = "https://cdn.jsdelivr.net/gh/googlefonts/noto-fonts/hinted/ttf/NotoSansBengali/";
+  const baseUrl = "https://notofonts.github.io/bengali/fonts/NotoSansBengali/hinted/ttf/";
   const [regRes, boldRes] = await Promise.all([
     fetch(baseUrl + "NotoSansBengali-Regular.ttf"),
     fetch(baseUrl + "NotoSansBengali-Bold.ttf")
   ]);
+  if (!regRes.ok || !boldRes.ok) {
+    throw new Error("Failed to download Bengali font (status " + regRes.status + "/" + boldRes.status + ")");
+  }
   const regBuf = await regRes.arrayBuffer();
   const boldBuf = await boldRes.arrayBuffer();
+  if (regBuf.byteLength < 1000 || boldBuf.byteLength < 1000) {
+    throw new Error("Bengali font file looks invalid/too small");
+  }
   doc.addFileToVFS("NotoSansBengali-Regular.ttf", arrayBufferToBase64(regBuf));
   doc.addFont("NotoSansBengali-Regular.ttf", "NotoBengali", "normal");
   doc.addFileToVFS("NotoSansBengali-Bold.ttf", arrayBufferToBase64(boldBuf));
