@@ -196,7 +196,39 @@ function fileToDataURL(file) {
   });
 }
 
-const FONT = "helvetica";
+// ---- Bangla font support ----
+function arrayBufferToBase64(buffer) {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+let bengaliFontLoaded = false;
+async function loadBengaliFont(doc) {
+  if (bengaliFontLoaded) return;
+  const baseUrl = "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-bengali/";
+  const [regRes, boldRes] = await Promise.all([
+    fetch(baseUrl + "NotoSansBengali_400Regular.ttf"),
+    fetch(baseUrl + "NotoSansBengali_700Bold.ttf")
+  ]);
+  if (!regRes.ok || !boldRes.ok) {
+    throw new Error("Failed to download Bengali font (status " + regRes.status + "/" + boldRes.status + ")");
+  }
+  const regBuf = await regRes.arrayBuffer();
+  const boldBuf = await boldRes.arrayBuffer();
+  if (regBuf.byteLength < 1000 || boldBuf.byteLength < 1000) {
+    throw new Error("Bengali font file looks invalid/too small");
+  }
+  doc.addFileToVFS("NotoSansBengali-Regular.ttf", arrayBufferToBase64(regBuf));
+  doc.addFont("NotoSansBengali-Regular.ttf", "NotoBengali", "normal");
+  doc.addFileToVFS("NotoSansBengali-Bold.ttf", arrayBufferToBase64(boldBuf));
+  doc.addFont("NotoSansBengali-Bold.ttf", "NotoBengali", "bold");
+  bengaliFontLoaded = true;
+}
 
 document.getElementById("shareBtn").addEventListener("click", async () => {
   const theme = document.getElementById("theme").value.trim();
@@ -219,6 +251,9 @@ document.getElementById("shareBtn").addEventListener("click", async () => {
   try {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: "mm", format: "a4" });
+
+    await loadBengaliFont(doc);
+    const FONT = "NotoBengali";
 
     const pageW = doc.internal.pageSize.getWidth();
     const margin = 10;
